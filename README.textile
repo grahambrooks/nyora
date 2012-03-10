@@ -1,0 +1,6 @@
+== nyora
+
+nyora - to make marks
+
+Goal:
+nyora mark up source files to show duplications within a project or source tree.
