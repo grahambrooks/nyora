@@ -1,5 +1,7 @@
+require 'fileutils'
 
 module Nyora
+  TAG_PREFIX = "//NYORA"
 
   class LineTagger
     def initialize(start_line, end_line, set)
@@ -7,48 +9,48 @@ module Nyora
       @high_water_mark = 1
       add_block start_line, end_line, set
     end
-    
+
     def add_block(start_line, end_line, set)
       @tags << [@high_water_mark, start_line, end_line, set]
       @high_water_mark += 1
     end
-    
+
     def tag_line(line_number, output, current_filename)
       @tags.each do |tag|
         if line_number == tag[1]
-          output.puts "//" * 50
-          output.puts "// TODO: START Duplication block #{tag[0]}"
+          output.puts TAG_PREFIX + "//" * 50
+          output.puts TAG_PREFIX + " TODO: START Duplication block #{tag[0]}"
           tag[3].print(output, current_filename)
         end
-        output.puts "// TODO: END Duplication Block #{tag[0]}" if line_number == tag[2]
+        output.puts TAG_PREFIX + " TODO: END Duplication Block #{tag[0]}" if line_number == tag[2]
       end
     end
   end
-  
+
   class TaggedSet
     def initialize
-    @set = []
+      @set = []
     end
-    
+
     def add(filename, start_line)
       @set << [filename, start_line]
     end
-    
+
     def print(stream, current_filename)
-    @set.each do |filename, start_line|
-        stream.puts "// #{File.basename(filename)} around line #{start_line}" unless filename == current_filename
+      @set.each do |filename, start_line|
+        stream.puts "#{TAG_PREFIX} #{File.basename(filename)} around line #{start_line}" unless filename == current_filename
       end
     end
   end
-  
+
   class DuplicateTagger
     def initialize
     end
-    
+
     def self.parse_emacs_format_log_file(input_file)
       files_with_duplicates = {}
       current_tagset        = TaggedSet.new
-      
+
       File.open input_file do |f|
         f.each_line do |line|
           if line =~ / ([^:]+):(\d+):1:(\d+):1:/
@@ -56,7 +58,7 @@ module Nyora
             if files_with_duplicates[$1].nil?
               files_with_duplicates[$1] = LineTagger.new($2.to_i, $3.to_i, current_tagset)
             else
-            files_with_duplicates[$1].add_block $2.to_i, $3.to_i, current_tagset
+              files_with_duplicates[$1].add_block $2.to_i, $3.to_i, current_tagset
             end
           else
             current_tagset = TaggedSet.new
@@ -65,31 +67,37 @@ module Nyora
       end
       files_with_duplicates
     end
-    
-    
+
+
     def self.tag_file(filename, tags)
       puts "Tagging #{filename}"
-      
+      tagged_filename = filename + '.tagged'
+
       File.open(filename) do |input|
-        File.open(filename + '.tagged', "w") do |output|
+        File.open(tagged_filename, "w") do |output|
           line_number = 1
-          
+
           input.each_line do |line|
-            tags.tag_line(line_number, output, filename)
-            output.print line
-            line_number += 1
+            if line =~ /\/\/NYORA.*/
+              # Ignore
+            else
+              tags.tag_line(line_number, output, filename)
+              output.print line
+              line_number += 1
+            end
           end
-          
         end
       end
+      FileUtils.cp(tagged_filename, filename)
+      FileUtils.rm(tagged_filename)
     end
-    
+
     def self.tag(input_file)
       if input_file.nil?
         puts "Usage duplicate-tagger.rb emacs-formatted-duplicate-report-file"
       else
         files_with_duplicates = parse_emacs_format_log_file(input_file)
-        
+
         files_with_duplicates.each do |filename, tags|
           tag_file filename, tags
         end
