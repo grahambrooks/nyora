@@ -141,8 +141,6 @@ EOS
         opt :clean, "Remove NYORA comment tags from files"
       end
 
-      p opts
-
       args.each do |input_file|
         opts[:clean] ? clean_tags(input_file) : tag(input_file)
       end
