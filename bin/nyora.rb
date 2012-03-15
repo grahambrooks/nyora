@@ -1,4 +1,5 @@
 require 'fileutils'
+require File.join(File.dirname(File.expand_path(__FILE__)), 'lib_trollop.rb')
 
 module Nyora
   TAG_PREFIX = "//NYORA"
@@ -92,15 +93,58 @@ module Nyora
       FileUtils.rm(tagged_filename)
     end
 
-    def self.tag(input_file)
-      if input_file.nil?
-        puts "Usage duplicate-tagger.rb emacs-formatted-duplicate-report-file"
-      else
-        files_with_duplicates = parse_emacs_format_log_file(input_file)
+    def self.clean_file(filename)
+      puts "Cleaning #{filename}"
+      cleaned_fileanme = filename + '.cleaned'
 
-        files_with_duplicates.each do |filename, tags|
-          tag_file filename, tags
+      File.open(filename) do |input|
+        File.open(cleaned_fileanme, "w") do |output|
+          input.each_line do |line|
+            unless line =~ /\/\/NYORA.*/
+              output.print line
+            end
+          end
         end
+      end
+
+      FileUtils.cp(cleaned_fileanme,filename)
+      FileUtils.rm(cleaned_fileanme)
+    end
+
+    def self.tag(input_file)
+      files_with_duplicates = parse_emacs_format_log_file(input_file)
+      
+      files_with_duplicates.each do |filename, tags|
+        tag_file filename, tags
+      end
+    end
+
+    def self.clean_tags(input_file)
+      files_with_duplicates = parse_emacs_format_log_file(input_file)
+      
+      files_with_duplicates.each do |filename, tags|
+        clean_file filename
+      end
+    end
+
+    def self.execute(args)
+      opts = Trollop::options do
+        version "nyorat 0.0.1 (c) 2012 Graham Brooks"
+        banner <<-EOS
+Nyora tags C sytle languages by reading an emacs formatted duplication report
+
+Usage:
+       nyora [options] <filenames>+
+where [options] are:
+EOS
+
+        opt :clean, "Remove NYORA comment tags from files"
+      end
+
+      p opts
+
+      args.each do |input_file|
+        opts[:clean] ? clean_tags(input_file) : tag(input_file)
       end
     end
   end

@@ -2,4 +2,4 @@
 
 require File.join(File.dirname(File.expand_path(__FILE__)), 'nyora.rb')
 
-Nyora::DuplicateTagger.tag ARGV.shift
+Nyora::DuplicateTagger.execute ARGV
